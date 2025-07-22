@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upgraded Glitchy Cube - Three.js + Anime.js</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: linear-gradient(45deg, #0a0a0a, #1a1a2e, #16213e);
+            overflow-x: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Make page scrollable for scroll effects */
+        body {
+            height: 500vh;
+        }
+
+        /* Fixed container for the 3D scene */
+        #scene-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* Info overlay */
+        .info-overlay {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff41;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #00ff41;
+            font-size: 12px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .scroll-indicator {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ff41;
+            font-size: 14px;
+            z-index: 100;
+            animation: pulse 2s infinite;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.8);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+            50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+        }
+
+        /* Glitch overlay effects */
+        .glitch-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 255, 65, 0.03) 2px,
+                rgba(0, 255, 65, 0.03) 4px
+            );
+            animation: scanlineMove 0.1s infinite linear;
+        }
+
+        @keyframes scanlineMove {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(4px); }
+        }
+
+        .rgb-shift {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                rgba(255, 0, 0, 0.02) 0%, 
+                transparent 33%, 
+                rgba(0, 255, 0, 0.02) 66%, 
+                rgba(0, 0, 255, 0.02) 100%);
+            animation: rgbShift 3s infinite;
+        }
+
+        @keyframes rgbShift {
+            0% { transform: translateX(0px); }
+            25% { transform: translateX(2px); }
+            50% { transform: translateX(-1px); }
+            75% { transform: translateX(1px); }
+            100% { transform: translateX(0px); }
+        }
+
+        /* Progress indicator */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #ff0080, #00ff80, #0080ff);
+            z-index: 200;
+            transition: width 0.1s ease;
+        }
+
+        /* Static noise effect */
+        .static-noise {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.05;
+            background-size: 2px 2px;
+            animation: staticNoise 0.1s infinite;
+        }
+
+        @keyframes staticNoise {
+            0% { 
+                background-image: 
+                    radial-gradient(circle at 20% 80%, white 1px, transparent 1px),
+                    radial-gradient(circle at 80% 20%, white 1px, transparent 1px);
+            }
+            50% { 
+                background-image: 
+                    radial-gradient(circle at 60% 30%, white 1px, transparent 1px),
+                    radial-gradient(circle at 30% 70%, white 1px, transparent 1px);
+            }
+            100% { 
+                background-image: 
+                    radial-gradient(circle at 20% 80%, white 1px, transparent 1px),
+                    radial-gradient(circle at 80% 20%, white 1px, transparent 1px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Progress bar -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Scene container -->
+    <div id="scene-container"></div>
+
+    <!-- Glitch overlay effects -->
+    <div class="glitch-overlay">
+        <div class="scanlines"></div>
+        <div class="rgb-shift"></div>
+        <div class="static-noise"></div>
+    </div>
+
+    <!-- Info overlay -->
+    <div class="info-overlay">
+        <div><strong>GLITCHY CUBE v4.0</strong></div>
+        <div>━━━━━━━━━━━━━━━━━━━</div>
+        <div>🎯 Scroll: Morph & Distort</div>
+        <div>🖱️ Mouse: Rotate Camera</div>
+        <div>⌨️ Space: Chaos Burst</div>
+        <div>🎮 Click: Glitch Pulse</div>
+        <div>━━━━━━━━━━━━━━━━━━━</div>
+        <div id="scrollProgress">Scroll: 0%</div>
+        <div id="glitchStatus">Glitch: OFF</div>
+        <div id="morphStatus">Morph: OFF</div>
+    </div>
+
+    <!-- Scroll indicator -->
+    <div class="scroll-indicator">
+        ↓ SCROLL TO UNLEASH CHAOS ↓<br>
+        <small>Experience the morphing glitch reality</small>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Post-processing -->
+    <script src="https://threejs.org/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://threejs.org/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://threejs.org/examples/js/postprocessing/GlitchPass.js"></script>
+    <script src="https://threejs.org/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://threejs.org/examples/js/shaders/CopyShader.js"></script>
+    <!-- Anime.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+
+    <script>
+        let scene, camera, renderer, composer;
+        let mainCube, glitchPass;
+        let morphingCubes = [];
+        let lights = [];
+        let mouse = { x: 0, y: 0 };
+        let scrollProgress = 0;
+        let cameraRig = { 
+            horizontalAngle: -30, 
+            verticalAngle: 30, 
+            distance: 300 
+        };
+        let animeTimeline;
+        let isInitialized = false;
+
+        // Initialize the scene
+        function init() {
+            if (isInitialized) return;
+            isInitialized = true;
+
+            // Scene setup
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0);
+            document.getElementById('scene-container').appendChild(renderer.domElement);
+
+            // Setup post-processing
+            setupPostProcessing();
+
+            // Create the main cube (matching original dimensions)
+            createMainCube();
+            
+            // Create lights (matching original)
+            createLights();
+            
+            // Create morphing satellite cubes
+            createMorphingCubes();
+
+            // Setup camera rig
+            updateCameraPosition();
+
+            // Setup anime.js animations
+            setupAnimeAnimations();
+
+            // Setup scroll effects
+            setupScrollEffects();
+
+            // Start animation loop
+            animate();
+
+            console.log('Scene initialized successfully');
+        }
+
+        // Setup post-processing to match original Lume implementation
+        function setupPostProcessing() {
+            try {
+                composer = new THREE.EffectComposer(renderer);
+
+                // Render pass
+                const renderPass = new THREE.RenderPass(scene, camera);
+                composer.addPass(renderPass);
+
+                // Glitch pass (matching original)
+                glitchPass = new THREE.GlitchPass();
+                composer.addPass(glitchPass);
+
+                // Copy pass for final output
+                const copyPass = new THREE.ShaderPass(THREE.CopyShader);
+                copyPass.renderToScreen = true;
+                composer.addPass(copyPass);
+
+                console.log('Post-processing setup complete');
+            } catch (error) {
+                console.warn('Post-processing failed, using basic renderer:', error);
+                composer = null;
+            }
+        }
+
+        // Create main cube matching original
+        function createMainCube() {
+            const geometry = new THREE.BoxGeometry(100, 100, 100);
+            const material = new THREE.MeshLambertMaterial({
+                color: 0x888888,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            mainCube = new THREE.Mesh(geometry, material);
+            mainCube.position.set(0, 0, 0);
+            scene.add(mainCube);
+
+            // Add wireframe for glitch effect
+            const wireframeGeometry = new THREE.EdgesGeometry(geometry);
+            const wireframeMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x00ff80,
+                transparent: true,
+                opacity: 0.6
+            });
+            const wireframe = new THREE.LineSegments(wireframeGeometry, wireframeMaterial);
+            mainCube.add(wireframe);
+
+            console.log('Main cube created');
+        }
+
+        // Create lights matching original
+        function createLights() {
+            // Deep pink light
+            const light1 = new THREE.PointLight(0xff1493, 0.6, 1000);
+            light1.position.set(200, 400, 500);
+            scene.add(light1);
+            lights.push(light1);
+
+            // Royal blue light
+            const light2 = new THREE.PointLight(0x4169e1, 0.6, 1000);
+            light2.position.set(-200, -400, -500);
+            scene.add(light2);
+            lights.push(light2);
+
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.2);
+            scene.add(ambientLight);
+
+            console.log('Lights created');
+        }
+
+        // Create morphing satellite cubes
+        function createMorphingCubes() {
+            const colors = [0xff0080, 0x00ff80, 0x0080ff, 0xff8000, 0x8000ff, 0xff0040];
+            const positions = [
+                [200, 200, 100],
+                [-200, 200, -100],
+                [200, -200, 150],
+                [-200, -200, -150],
+                [0, 250, 200],
+                [0, -250, -200]
+            ];
+
+            for (let i = 0; i < 6; i++) {
+                const geometry = new THREE.BoxGeometry(20, 20, 20);
+                const material = new THREE.MeshLambertMaterial({
+                    color: colors[i],
+                    transparent: true,
+                    opacity: 0
+                });
+                
+                const morphCube = new THREE.Mesh(geometry, material);
+                morphCube.position.set(...positions[i]);
+                morphCube.visible = false;
+                
+                morphingCubes.push(morphCube);
+                scene.add(morphCube);
+            }
+
+            console.log('Morphing cubes created');
+        }
+
+        // Update camera position based on rig
+        function updateCameraPosition() {
+            const horizontalRad = (cameraRig.horizontalAngle * Math.PI) / 180;
+            const verticalRad = (cameraRig.verticalAngle * Math.PI) / 180;
+            
+            camera.position.x = Math.cos(horizontalRad) * Math.cos(verticalRad) * cameraRig.distance;
+            camera.position.y = Math.sin(verticalRad) * cameraRig.distance;
+            camera.position.z = Math.sin(horizontalRad) * Math.cos(verticalRad) * cameraRig.distance;
+            
+            camera.lookAt(0, 0, 0);
+        }
+
+        // Setup anime.js animations
+        function setupAnimeAnimations() {
+            // Main cube continuous rotation
+            anime({
+                targets: mainCube.rotation,
+                x: '+=6.28',
+                y: '+=6.28',
+                z: '+=3.14',
+                duration: 20000,
+                easing: 'linear',
+                loop: true
+            });
+
+            // Camera rig rotation
+            anime({
+                targets: cameraRig,
+                horizontalAngle: cameraRig.horizontalAngle + 360,
+                duration: 30000,
+                easing: 'linear',
+                loop: true,
+                update: updateCameraPosition
+            });
+
+            // Setup scroll-based timeline
+            animeTimeline = anime.timeline({
+                autoplay: false,
+                easing: 'easeOutExpo'
+            });
+
+            // Main cube morphing animations
+            animeTimeline
+                .add({
+                    targets: mainCube.scale,
+                    x: [1, 2, 0.5, 1.5, 1],
+                    y: [1, 0.5, 2, 0.8, 1],
+                    z: [1, 1.5, 1, 2, 1],
+                    duration: 3000
+                }, 0)
+                .add({
+                    targets: mainCube.rotation,
+                    x: mainCube.rotation.x + 12.56,
+                    y: mainCube.rotation.y + 18.84,
+                    z: mainCube.rotation.z + 6.28,
+                    duration: 4000
+                }, 500)
+                .add({
+                    targets: mainCube.material,
+                    opacity: [0.8, 0.3, 1, 0.5, 0.8],
+                    duration: 2000
+                }, 1000);
+
+            // Morphing cubes animations
+            morphingCubes.forEach((cube, index) => {
+                const delay = index * 300;
+                
+                animeTimeline
+                    .add({
+                        targets: cube.position,
+                        x: cube.position.x * 2,
+                        y: cube.position.y * 2,
+                        z: cube.position.z * 2,
+                        duration: 2000,
+                        delay: delay
+                    }, 1000)
+                    .add({
+                        targets: cube.rotation,
+                        x: '+=25.12',
+                        y: '+=37.68',
+                        z: '+=12.56',
+                        duration: 3000,
+                        delay: delay
+                    }, 1500)
+                    .add({
+                        targets: cube.scale,
+                        x: [1, 3, 0.2, 1],
+                        y: [1, 0.2, 3, 1],
+                        z: [1, 2, 0.5, 1],
+                        duration: 2500,
+                        delay: delay
+                    }, 2000);
+            });
+
+            console.log('Anime.js animations setup complete');
+        }
+
+        // Setup scroll effects
+        function setupScrollEffects() {
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset;
+                const docHeight = document.body.scrollHeight - window.innerHeight;
+                scrollProgress = Math.min(scrollTop / docHeight, 1);
+
+                // Update progress bar
+                document.getElementById('progressBar').style.width = (scrollProgress * 100) + '%';
+                document.getElementById('scrollProgress').textContent = `Scroll: ${Math.round(scrollProgress * 100)}%`;
+
+                // Enable glitch effect based on scroll
+                if (scrollProgress > 0.1) {
+                    document.getElementById('glitchStatus').textContent = 'Glitch: ON';
+                    if (glitchPass) {
+                        glitchPass.enabled = true;
+                    }
+                } else {
+                    document.getElementById('glitchStatus').textContent = 'Glitch: OFF';
+                    if (glitchPass) {
+                        glitchPass.enabled = false;
+                    }
+                }
+
+                // Enable morphing based on scroll
+                if (scrollProgress > 0.2) {
+                    document.getElementById('morphStatus').textContent = 'Morph: ON';
+                } else {
+                    document.getElementById('morphStatus').textContent = 'Morph: OFF';
+                }
+
+                // Show morphing cubes progressively
+                morphingCubes.forEach((cube, index) => {
+                    const threshold = (index + 1) / morphingCubes.length;
+                    const shouldShow = scrollProgress > threshold * 0.3;
+                    
+                    cube.visible = shouldShow;
+                    if (shouldShow) {
+                        cube.material.opacity = 0.3 + scrollProgress * 0.7;
+                    }
+                });
+
+                // Update anime timeline
+                animeTimeline.seek(animeTimeline.duration * scrollProgress);
+
+                // Real-time distortions using anime.js
+                if (scrollProgress > 0.5) {
+                    // Random glitch bursts at high scroll values
+                    if (Math.random() < 0.02) {
+                        const distortionFactor = scrollProgress * 2;
+                        
+                        anime({
+                            targets: mainCube.scale,
+                            x: 1 + (Math.random() - 0.5) * distortionFactor,
+                            y: 1 + (Math.random() - 0.5) * distortionFactor,
+                            z: 1 + (Math.random() - 0.5) * distortionFactor,
+                            duration: 200,
+                            easing: 'easeOutBounce',
+                            complete: () => {
+                                anime({
+                                    targets: mainCube.scale,
+                                    x: 1,
+                                    y: 1,
+                                    z: 1,
+                                    duration: 300
+                                });
+                            }
+                        });
+                    }
+                }
+
+                // Extreme effects at maximum scroll
+                if (scrollProgress > 0.9) {
+                    // Chaos mode for all cubes
+                    morphingCubes.forEach((cube, index) => {
+                        if (Math.random() < 0.01) {
+                            anime({
+                                targets: cube.rotation,
+                                x: cube.rotation.x + (Math.random() - 0.5) * 6.28,
+                                y: cube.rotation.y + (Math.random() - 0.5) * 6.28,
+                                z: cube.rotation.z + (Math.random() - 0.5) * 6.28,
+                                duration: 500,
+                                easing: 'easeOutElastic(1, .8)'
+                            });
+                        }
+                    });
+
+                    // Enhanced lighting effects
+                    lights.forEach((light, index) => {
+                        light.intensity = 0.6 + Math.random() * 1.4;
+                        if (Math.random() < 0.05) {
+                            light.color.setHSL(Math.random(), 1, 0.5);
+                        }
+                    });
+                }
+            });
+
+            console.log('Scroll effects setup complete');
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Mouse interaction for camera
+            cameraRig.horizontalAngle += (mouse.x * 20 - cameraRig.horizontalAngle) * 0.02;
+            cameraRig.verticalAngle += (mouse.y * 20 - cameraRig.verticalAngle) * 0.02;
+            updateCameraPosition();
+            
+            // Animate morphing cubes
+            morphingCubes.forEach((cube, index) => {
+                if (cube.visible) {
+                    cube.rotation.x += 0.01 * (index + 1);
+                    cube.rotation.y += 0.015 * (index + 1);
+                    cube.rotation.z += 0.008 * (index + 1);
+                }
+            });
+            
+            // Render with post-processing or basic rendering
+            if (composer) {
+                composer.render();
+            } else {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // Mouse interaction
+        document.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Click for glitch pulse
+        document.addEventListener('click', () => {
+            anime({
+                targets: mainCube.material,
+                opacity: [0.8, 0.1, 1, 0.3, 0.8],
+                duration: 500,
+                easing: 'easeInOutQuad'
+            });
+            
+            // Pulse all morphing cubes
+            morphingCubes.forEach((cube, index) => {
+                if (cube.visible) {
+                    anime({
+                        targets: cube.scale,
+                        x: [1, 2, 1],
+                        y: [1, 2, 1],
+                        z: [1, 2, 1],
+                        duration: 300,
+                        delay: index * 50,
+                        easing: 'easeOutBounce'
+                    });
+                }
+            });
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (event) => {
+            switch(event.key.toLowerCase()) {
+                case ' ': // Spacebar for chaos burst
+                    event.preventDefault();
+                    
+                    // Extreme chaos animation for main cube
+                    anime({
+                        targets: mainCube.rotation,
+                        x: mainCube.rotation.x + 25.12,
+                        y: mainCube.rotation.y + 37.68,
+                        z: mainCube.rotation.z + 12.56,
+                        duration: 2000,
+                        easing: 'easeOutElastic(1, .8)'
+                    });
+                    
+                    anime({
+                        targets: mainCube.scale,
+                        x: [1, 4, 0.1, 2, 1],
+                        y: [1, 0.1, 4, 0.5, 1],
+                        z: [1, 3, 0.2, 1.5, 1],
+                        duration: 2000,
+                        easing: 'easeOutBounce'
+                    });
+                    
+                    // Trigger all morphing cubes
+                    morphingCubes.forEach((cube, index) => {
+                        cube.visible = true;
+                        cube.material.opacity = 1;
+                        
+                        anime({
+                            targets: cube.position,
+                            x: cube.position.x * 3,
+                            y: cube.position.y * 3,
+                            z: cube.position.z * 3,
+                            duration: 1500,
+                            delay: index * 100,
+                            easing: 'easeOutExpo'
+                        });
+                        
+                        anime({
+                            targets: cube.rotation,
+                            x: '+=37.68',
+                            y: '+=56.52',
+                            z: '+=25.12',
+                            duration: 2000,
+                            delay: index * 150,
+                            easing: 'easeOutElastic(1, .6)'
+                        });
+                    });
+                    break;
+                    
+                case 'r': // Reset
+                    location.reload();
+                    break;
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if (composer) {
+                composer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            setTimeout(init, 100);
+        });
+        
+        // Fallback initialization
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(init, 500);
+            });
+        } else {
+            setTimeout(init, 100);
+        }
+    </script>
+</body>
+</html>
